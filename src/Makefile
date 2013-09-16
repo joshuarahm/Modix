@@ -1,26 +1,44 @@
-CC_PREFIX?==""
-
-CC=$(CC_PREFIX)gcc
+CC_PREFIX?=
+CC=$(CC_PREFIX)cc
 AS=$(CC_PREFIX)as
+AR=$(CC_PREFIX)ar
 
-CFLAGS=-ffreestanding -O2 -Wall -Wextra -std=gnu99
+export CC_PREFIX
+export CC
+export AS
+export AR
 
-OBJS:=boot.o kernel.o util.o terminal.o
+ARCH?=x86_64
 
-all: $(OBJS)
-	$(CC) -T linker.ld -o modix.bin -ffreestanding -O2 -nostdlib $(OBJS)
+CFLAGS+=-I$(shell pwd)/include -I$(shell pwd)/arch/$(ARCH) -ffreestanding -O2 -Wall -Wextra -std=gnu99
 
-boot.o: boot.s
-	$(AS) boot.s -o boot.o
+export ARCH
+export CFLAGS
 
-kernel.o: kernel.c
-	$(CC) -c kernel.c -o kernel.o $(CFLAGS)
 
-util.o: util.c
-	$(CC) -c util.c -o util.o $(CFLAGS)
+.PHONY: build kernel boot lib
+all: build
+	$(CC) -T linker.ld -o modix.bin -ffreestanding -O2 -nostdlib \
+		arch/$(ARCH)/build/*.o \
+		kernel/build/*.o \
+		lib/build/*.o
 
-terminal.o: terminal.c
-	$(CC) -c terminal.c -o terminal.o $(CFLAGS)
+build: kernel boot lib
+
+boot:
+	cd arch && make boot && cd ..
+
+lib:
+	mkdir -p lib/build
+	cd lib && make lib && cd ..
+
+kernel:
+	mkdir -p kernel/build
+	cd kernel && make kernel && cd ..
 
 clean:
-	rm -rf *.o modix.bin
+	- rm -r build/
+	- rm -r kernel/build
+	- rm -r lib/build/
+	- rm -r arch/$(ARCH)/build/
+	- rm modix.bin
